@@ -32,9 +32,9 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elb"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 
-	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -282,10 +282,13 @@ func (c *Cloud) ensureLoadBalancerv2(namespacedName types.NamespacedName, loadBa
 							if mapping.SSLPolicy != "" {
 								modifyListenerInput.SslPolicy = aws.String(mapping.SSLPolicy)
 							}
-							modifyListenerInput.Certificates = []*elbv2.Certificate{
-								{
-									CertificateArn: aws.String(mapping.SSLCertificateARN),
-								},
+							ELBCertificates := []*elbv2.Certificate{}
+							if strings.Contains(mapping.SSLCertificateARN, ",") {
+								for _, ARN := range strings.Split(mapping.SSLCertificateARN, ",") {
+									Certificates = append(Certificates, &elbv2.Certificate{CertificateArn: aws.String(ARN)})
+								}
+							}
+							modifyListenerInput.Certificates = ELBCertificates
 							}
 						}
 						if _, err := c.elbv2.ModifyListener(modifyListenerInput); err != nil {
@@ -509,11 +512,13 @@ func (c *Cloud) createListenerV2(loadBalancerArn *string, mapping nlbPortMapping
 		if mapping.SSLPolicy != "" {
 			createListernerInput.SslPolicy = aws.String(mapping.SSLPolicy)
 		}
-		createListernerInput.Certificates = []*elbv2.Certificate{
-			{
-				CertificateArn: aws.String(mapping.SSLCertificateARN),
-			},
+		ELBCertificates := []*elbv2.Certificate{}
+		if strings.Contains(mapping.SSLCertificateARN, ",") {
+			for _, ARN := range strings.Split(mapping.SSLCertificateARN, ",") {
+				Certificates = append(Certificates, &elbv2.Certificate{CertificateArn: aws.String(ARN)})
+			}
 		}
+		createListernerInput.Certificates = ELBCertificates
 	}
 
 	klog.Infof("Creating load balancer listener for %v", namespacedName)
