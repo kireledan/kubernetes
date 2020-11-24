@@ -3823,16 +3823,37 @@ func (c *Cloud) EnsureLoadBalancer(ctx context.Context, clusterName string, apiS
 				return nil, err
 			}
 
+<<<<<<< HEAD
 			certificateARN := annotations[ServiceAnnotationLoadBalancerCertificate]
 			if port.Protocol != v1.ProtocolUDP && certificateARN != "" && (sslPorts == nil || sslPorts.numbers.Has(int64(port.Port)) || sslPorts.names.Has(port.Name)) {
+=======
+			if certificateARN != "" && (sslPorts == nil || sslPorts.numbers.Has(int64(port.Port)) || sslPorts.names.Has(port.Name)) {
+				certificateARNs := []string
+				extraCertificateARNs := []*elbv2.Certificate
+	
+				for _, ARN := range strings.Split(annotations[ServiceAnnotationLoadBalancerCertificate], ",") {
+					cert := elbv2.Certificate{
+						CertificateArn: aws.(ARN)
+					}
+					certificateARNs = append(certificateARNs, elbv)
+				}
+	
+				defaultCertificateARN := certificateARNs[0]
+				if len(certificateARNs) > 1 {
+					extraCertificateARNs := certificateARNs[1:]
+				}
+
+>>>>>>> WIP
 				portMapping.FrontendProtocol = elbv2.ProtocolEnumTls
-				portMapping.SSLCertificateARN = certificateARN
+				portMapping.SSLCertificateARN = defaultCertificateARN
 				portMapping.SSLPolicy = annotations[ServiceAnnotationLoadBalancerSSLNegotiationPolicy]
+				portMapping.ExtraSSLCertificateARNs = extraCertificateARNs
 
 				if backendProtocol := annotations[ServiceAnnotationLoadBalancerBEProtocol]; backendProtocol == "ssl" {
 					portMapping.TrafficProtocol = elbv2.ProtocolEnumTls
 				}
 			}
+<<<<<<< HEAD
 
 			v2Mappings = append(v2Mappings, portMapping)
 		} else {
@@ -3842,6 +3863,9 @@ func (c *Cloud) EnsureLoadBalancer(ctx context.Context, clusterName string, apiS
 			}
 			listeners = append(listeners, listener)
 		}
+=======
+		listeners = append(listeners, listener)
+>>>>>>> WIP
 	}
 
 	if apiService.Spec.LoadBalancerIP != "" {

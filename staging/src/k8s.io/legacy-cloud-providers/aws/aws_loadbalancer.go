@@ -34,7 +34,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"k8s.io/klog/v2"
 
-	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -101,6 +100,8 @@ type nlbPortMapping struct {
 	SSLCertificateARN string
 	SSLPolicy         string
 	HealthCheckConfig healthCheckConfig
+
+	ExtraSSLCertificateARNs []*elbv2.Certificate
 }
 
 // getKeyValuePropertiesFromAnnotation converts the comma separated list of key-value
@@ -250,6 +251,7 @@ func (c *Cloud) ensureLoadBalancerv2(namespacedName types.NamespacedName, loadBa
 							if len(listener.Certificates) == 0 || aws.StringValue(listener.Certificates[0].CertificateArn) != mapping.SSLCertificateARN {
 								listenerNeedsModification = true
 							}
+							if len(listener.Certificates) == 0 || listener.Certificates.Difference()
 						}
 					case elbv2.ProtocolEnumTcp:
 						{
