@@ -19,6 +19,7 @@ limitations under the License.
 package aws
 
 import (
+	"context"
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
@@ -32,6 +33,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elb"
 	"github.com/aws/aws-sdk-go/service/elbv2"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -101,7 +103,7 @@ type nlbPortMapping struct {
 	SSLPolicy         string
 	HealthCheckConfig healthCheckConfig
 
-	ExtraSSLCertificateARNs []*elbv2.Certificate
+	ExtraSSLCertificateARNs sets.String
 }
 
 // getKeyValuePropertiesFromAnnotation converts the comma separated list of key-value
@@ -245,13 +247,17 @@ func (c *Cloud) ensureLoadBalancerv2(namespacedName types.NamespacedName, loadBa
 					switch mapping.FrontendProtocol {
 					case elbv2.ProtocolEnumTls:
 						{
+							listenerCerts := stringSetFromCertificate(listener.Certificates)
+
 							if aws.StringValue(listener.SslPolicy) != mapping.SSLPolicy {
 								listenerNeedsModification = true
 							}
 							if len(listener.Certificates) == 0 || aws.StringValue(listener.Certificates[0].CertificateArn) != mapping.SSLCertificateARN {
 								listenerNeedsModification = true
 							}
-							if len(listener.Certificates) == 0 || listener.Certificates.Difference()
+							if len(listener.Certificates) == 0 || listenerCerts.Difference(mapping.ExtraSSLCertificateARNs) {
+								listenerNeedsModification = true
+							}
 						}
 					case elbv2.ProtocolEnumTcp:
 						{
@@ -1560,6 +1566,19 @@ func proxyProtocolEnabled(backend *elb.BackendServerDescription) bool {
 	return false
 }
 
+func stringSetFromCertificate(certs []*elbv2.Certificate) sets.String {
+	if len(certs) == 0 {
+		return nil
+	}
+	certs := sets.NewString()
+
+	for i := range certs {
+		certs.Insert(aws.StringValue(certs[i]))
+	}
+
+	return certs
+}
+
 // findInstancesForELB gets the EC2 instances corresponding to the Nodes, for setting up an ELB
 // We ignore Nodes (with a log message) where the instanceid cannot be determined from the provider,
 // and we ignore instances which are not found
@@ -1615,4 +1634,21 @@ func filterTargetNodes(nodes []*v1.Node, annotations map[string]string) []*v1.No
 	}
 
 	return targetNodes
+}
+
+func (m *defaultListenerManager) fetchSDKListenerExtraCertificateARNs(ctx context.Context, sdkLS *elbv2sdk.Listener) ([]string, error) {
+	req := &elbv2sdk.DescribeListenerCertificatesInput{
+		ListenerArn: sdkLS.ListenerArn,
+	}
+	sdkCerts, err := m.elbv2Client.DescribeListenerCertificatesAsList(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	extraCertARNs := make([]string, 0, len(sdkCerts))
+	for _, cert := range sdkCerts {
+		if !awssdk.BoolValue(cert.IsDefault) {
+			extraCertARNs = append(extraCertARNs, awssdk.StringValue(cert.CertificateArn))
+		}
+	}
+	return extraCertARNs, nil
 }

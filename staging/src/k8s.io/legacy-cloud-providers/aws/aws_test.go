@@ -2543,6 +2543,20 @@ func (m *MockedFakeELBV2) WaitUntilLoadBalancersDeleted(*elbv2.DescribeLoadBalan
 	panic("Not implemented")
 }
 
+func (elb *MockedFakeELBV2) AddListenerCertificates(*elbv2.AddListenerCertificatesInput) (*elbv2.AddListenerCertificatesOutput, error) {
+	panic("Not implemented")
+}
+
+// DescribeListenerCertificates is not implemented but is required for interface conformance
+func (elb *MockedFakeELBV2) DescribeListenerCertificates(*elbv2.DescribeListenerCertificatesInput) (*elbv2.DescribeListenerCertificatesOutput, error) {
+	panic("Not implemented")
+}
+
+// RemoveListenerCertificates is not implemented but is required for interface conformance
+func (elb *MockedFakeELBV2) RemoveListenerCertificates(*elbv2.RemoveListenerCertificatesInput) (*elbv2.RemoveListenerCertificatesOutput, error) {
+	panic("Not implemented")
+}
+
 func (m *MockedFakeEC2) maybeExpectDescribeSecurityGroups(clusterID, groupName string) {
 	tags := []*ec2.Tag{
 		{Key: aws.String(TagNameKubernetesClusterLegacy), Value: aws.String(clusterID)},
